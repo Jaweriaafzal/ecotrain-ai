@@ -13,69 +13,115 @@ from sklearn.preprocessing import StandardScaler
 from tensorflow import keras
 from tensorflow.keras import layers
 
-st.set_page_config(page_title="EcoTrain AI", page_icon="🌸")
 
-# ------------------------------------------------------------------
+# ==================================================================
+# PAGE CONFIGURATION
+# ==================================================================
+
+st.set_page_config(
+    page_title="EcoTrain AI",
+    page_icon="🌸",
+    layout="wide",
+)
+
+
+# ==================================================================
 # PINK THEME
-# ------------------------------------------------------------------
+# ==================================================================
+
 st.markdown(
     """
-<style>
-.stApp { background: linear-gradient(180deg, #FFF0F7 0%, #FFE0EF 100%); }
-h1 { color: #D6336C !important; text-align: center; }
-h2, h3, h4 { color: #E64980 !important; }
-p, label, li, .stMarkdown { color: #6B2D4A; }
-div[data-baseweb="input"] {
-    border-radius: 14px !important;
-    border: 2px solid #FFC2DD !important;
-    background: #FFFFFF !important;
-}
-div.stButton > button {
-    width: 100%;
-    background: linear-gradient(90deg, #FF6FAE, #FF9BCB);
-    color: white;
-    border: none;
-    border-radius: 30px;
-    padding: 0.7em 1.6em;
-    font-weight: 700;
-    box-shadow: 0 6px 16px rgba(255,111,174,0.4);
-}
-div.stButton > button:hover {
-    transform: scale(1.03);
-    color: white;
-}
-[data-testid="stMetric"] {
-    background: #FFFFFF;
-    border-radius: 18px;
-    padding: 12px;
-    border: 2px solid #FFC2DD;
-}
-button[data-baseweb="tab"] { font-weight: 600; }
-.result-card {
-    background: #FFFFFF;
-    border: 3px solid #FFC2DD;
-    border-radius: 24px;
-    padding: 22px;
-    text-align: center;
-    margin-top: 18px;
-    box-shadow: 0 8px 20px rgba(255,150,200,0.35);
-}
-.result-card .label { color: #E64980; font-size: 1rem; }
-.result-card .value {
-    color: #D6336C;
-    font-size: 2.6rem;
-    font-weight: 800;
-}
-</style>
-""",
+    <style>
+    .stApp {
+        background: linear-gradient(180deg, #FFF0F7 0%, #FFE0EF 100%);
+    }
+
+    h1 {
+        color: #D6336C !important;
+        text-align: center;
+    }
+
+    h2, h3, h4 {
+        color: #E64980 !important;
+    }
+
+    p, label, li, .stMarkdown {
+        color: #6B2D4A;
+    }
+
+    div[data-baseweb="input"] {
+        border-radius: 14px !important;
+        border: 2px solid #FFC2DD !important;
+        background: #FFFFFF !important;
+    }
+
+    div.stButton > button {
+        width: 100%;
+        background: linear-gradient(90deg, #FF6FAE, #FF9BCB);
+        color: white;
+        border: none;
+        border-radius: 30px;
+        padding: 0.7em 1.6em;
+        font-weight: 700;
+        box-shadow: 0 6px 16px rgba(255,111,174,0.4);
+    }
+
+    div.stButton > button:hover {
+        transform: scale(1.03);
+        color: white;
+    }
+
+    [data-testid="stMetric"] {
+        background: #FFFFFF;
+        border-radius: 18px;
+        padding: 12px;
+        border: 2px solid #FFC2DD;
+    }
+
+    button[data-baseweb="tab"] {
+        font-weight: 600;
+    }
+
+    .result-card {
+        background: #FFFFFF;
+        border: 3px solid #FFC2DD;
+        border-radius: 24px;
+        padding: 22px;
+        text-align: center;
+        margin-top: 18px;
+        box-shadow: 0 8px 20px rgba(255,150,200,0.35);
+    }
+
+    .result-card .label {
+        color: #E64980;
+        font-size: 1rem;
+    }
+
+    .result-card .value {
+        color: #D6336C;
+        font-size: 2.6rem;
+        font-weight: 800;
+    }
+    </style>
+    """,
     unsafe_allow_html=True,
 )
 
+
+# ==================================================================
+# APPLICATION TITLE AND TABS
+# ==================================================================
+
 st.title("🌸 EcoTrain AI 🌸")
 
-tab1, tab2 = st.tabs(
-    ["⚡ Energy Consumption", "🎀 Optimizer Experiment"]
+tab1, tab2, tab3 = st.tabs(
+    [
+        "⚡ Energy Consumption",
+        "🎀 Optimizer Experiments",
+        "🌸 About the Project",
+    ]
 )
+
 
 # ==================================================================
 # TAB 1: ENERGY CONSUMPTION PREDICTION
@@ -90,6 +136,7 @@ def load_files():
 
 with tab1:
     st.subheader("💗 Energy Consumption Prediction System")
+
     st.write(
         "Enter the electricity measurements to predict energy consumption."
     )
@@ -98,53 +145,75 @@ with tab1:
         model, scaler = load_files()
 
         reactive = st.number_input(
-            "Global Reactive Power", min_value=0.0, value=0.4
+            "Global Reactive Power",
+            min_value=0.0,
+            value=0.4,
         )
+
         voltage = st.number_input(
-            "Voltage", min_value=0.0, value=230.0
+            "Voltage",
+            min_value=0.0,
+            value=230.0,
         )
+
         intensity = st.number_input(
-            "Global Intensity", min_value=0.0, value=10.0
+            "Global Intensity",
+            min_value=0.0,
+            value=10.0,
         )
+
         sub1 = st.number_input(
-            "Sub Metering 1", min_value=0.0, value=0.0
+            "Sub Metering 1",
+            min_value=0.0,
+            value=0.0,
         )
+
         sub2 = st.number_input(
-            "Sub Metering 2", min_value=0.0, value=1.0
+            "Sub Metering 2",
+            min_value=0.0,
+            value=1.0,
         )
+
         sub3 = st.number_input(
-            "Sub Metering 3", min_value=0.0, value=15.0
+            "Sub Metering 3",
+            min_value=0.0,
+            value=15.0,
         )
 
         if st.button("Predict Energy Consumption"):
             inputs = np.array(
                 [[reactive, voltage, intensity, sub1, sub2, sub3]]
             )
+
             scaled_inputs = scaler.transform(inputs)
+
             prediction = model.predict(
-                scaled_inputs, verbose=0
+                scaled_inputs,
+                verbose=0,
             )[0][0]
 
             st.markdown(
                 '<div class="result-card">'
                 '<div class="label">⚡ Predicted Active Power</div>'
                 f'<div class="value">{prediction:.3f} kW</div>'
-                "</div>",
+                '</div>',
                 unsafe_allow_html=True,
             )
 
     except Exception as e:
-        st.error(f"Unable to load the model files: {e}")
+        st.error(
+            f"Unable to load the model files: {e}"
+        )
 
 
 # ==================================================================
-# TAB 2: OPTIMIZER EXPERIMENT
+# TAB 2: OPTIMIZER EXPERIMENTS
 # ==================================================================
 
 SEED = 42
 
 
-# 1. Generate the dataset
+# Generate the dataset
 @st.cache_data
 def make_data():
     np.random.seed(SEED)
@@ -158,10 +227,14 @@ def make_data():
     )
 
     X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=0.20, random_state=SEED
+        X,
+        y,
+        test_size=0.20,
+        random_state=SEED,
     )
 
     scaler = StandardScaler()
+
     X_train = scaler.fit_transform(X_train)
     X_test = scaler.transform(X_test)
 
@@ -171,7 +244,7 @@ def make_data():
 X, X_train, X_test, y_train, y_test = make_data()
 
 
-# 2. Build the artificial neural network model
+# Build the artificial neural network
 def build_model(optimizer):
     model = keras.Sequential(
         [
@@ -197,7 +270,8 @@ optimizer_configs = {
         learning_rate=0.01
     ),
     "Momentum": lambda: keras.optimizers.SGD(
-        learning_rate=0.01, momentum=0.9
+        learning_rate=0.01,
+        momentum=0.9,
     ),
     "RMSprop": lambda: keras.optimizers.RMSprop(
         learning_rate=0.001
@@ -208,8 +282,8 @@ optimizer_configs = {
 }
 
 
+# Adaptive learning rate and early stopping
 def adaptive_callbacks():
-    # Adaptive learning rate and early stopping
     return [
         keras.callbacks.ReduceLROnPlateau(
             monitor="val_loss",
@@ -227,8 +301,8 @@ def adaptive_callbacks():
     ]
 
 
+# Train a model and return its history, training time, and test errors
 def train_once(seed, optimizer, epochs, callbacks=None):
-    """Train a model and return its history, training time, and test errors."""
     tf.keras.utils.set_random_seed(seed)
 
     model = build_model(optimizer)
@@ -246,8 +320,11 @@ def train_once(seed, optimizer, epochs, callbacks=None):
     )
 
     elapsed = time.perf_counter() - start
+
     test_mse, test_mae = model.evaluate(
-        X_test, y_test, verbose=0
+        X_test,
+        y_test,
+        verbose=0,
     )
 
     return history, elapsed, test_mse, test_mae
@@ -258,14 +335,18 @@ with tab2:
 
     st.write(
         "This experiment trains an artificial neural network (ANN) "
-        "with an architecture of 32 → 16 → 1 using different "
-        "optimizers. It compares training time and prediction errors."
+        "with an architecture of 32 → 16 → 1 using different optimizers. "
+        "It compares training time and prediction errors."
     )
 
-    # Section 1: Dataset
+    # --------------------------------------------------------------
+    # SECTION 1: DATASET
+    # --------------------------------------------------------------
+
     st.markdown("### 1. Dataset")
 
     c1, c2, c3, c4 = st.columns(4)
+
     c1.metric("Total Samples", len(X))
     c2.metric("Training Samples", len(X_train))
     c3.metric("Testing Samples", len(X_test))
@@ -274,23 +355,30 @@ with tab2:
     df = pd.DataFrame(
         X_train[:5],
         columns=[
-            f"Feature_{i+1}"
+            f"Feature_{i + 1}"
             for i in range(X_train.shape[1])
         ],
     )
+
     df["Target"] = y_train[:5]
 
     st.write("First 5 Training Samples:")
     st.dataframe(df, width="stretch")
 
-    # Section 2: Optimizer comparison
+    # --------------------------------------------------------------
+    # SECTION 2: OPTIMIZER COMPARISON
+    # --------------------------------------------------------------
+
     st.markdown("### 2. Optimizer Comparison")
 
     st.write(
         "Compare SGD, Momentum, RMSprop, and Adam over 50 epochs."
     )
 
-    if st.button("Run Optimizer Comparison", key="btn_opt"):
+    if st.button(
+        "Run Optimizer Comparison",
+        key="btn_opt",
+    ):
         results = []
 
         for name, make_optimizer in optimizer_configs.items():
@@ -316,26 +404,33 @@ with tab2:
         results_df = st.session_state["results_df"]
 
         st.dataframe(
-            results_df, width="stretch", hide_index=True
+            results_df,
+            width="stretch",
+            hide_index=True,
         )
 
         c1, c2 = st.columns(2)
 
         with c1:
             st.write("Test MAE (Lower Is Better)")
+
             st.bar_chart(
                 results_df.set_index("Optimizer")["Test MAE"]
             )
 
         with c2:
             st.write("Training Time (Seconds)")
+
             st.bar_chart(
                 results_df.set_index("Optimizer")[
                     "Training Time (sec)"
                 ]
             )
 
-    # Section 3: Adam vs. Adaptive Controller
+    # --------------------------------------------------------------
+    # SECTION 3: ADAM VS. ADAPTIVE CONTROLLER
+    # --------------------------------------------------------------
+
     st.markdown("### 3. Adam vs. Adaptive Controller")
 
     st.write(
@@ -344,7 +439,10 @@ with tab2:
         "of 100 epochs."
     )
 
-    if st.button("Run Adaptive Controller", key="btn_adaptive"):
+    if st.button(
+        "Run Adaptive Controller",
+        key="btn_adaptive",
+    ):
         with st.spinner("Training the Adam baseline..."):
             _, t1, mse1, mae1 = train_once(
                 42,
@@ -387,15 +485,20 @@ with tab2:
         a = st.session_state["adaptive"]
 
         st.dataframe(
-            a["table"], width="stretch", hide_index=True
+            a["table"],
+            width="stretch",
+            hide_index=True,
         )
 
         fig, ax = plt.subplots(figsize=(8, 4))
+
         ax.plot(a["loss"], label="Training Loss")
         ax.plot(a["val_loss"], label="Validation Loss")
+
         ax.set_xlabel("Epoch")
         ax.set_ylabel("MSE Loss")
         ax.set_title("EcoTrain AI - Adaptive Training")
+
         ax.legend()
         ax.grid(True)
 
@@ -408,7 +511,10 @@ with tab2:
             "an equal comparison. See Section 4 for a fair comparison."
         )
 
-    # Section 4: Fair comparison
+    # --------------------------------------------------------------
+    # SECTION 4: FAIR COMPARISON
+    # --------------------------------------------------------------
+
     st.markdown(
         "### 4. Fair Comparison (Same 50 Epochs, 3 Random Seeds)"
     )
@@ -418,7 +524,10 @@ with tab2:
         "the same 50-epoch limit and random seeds 21, 42, and 7."
     )
 
-    if st.button("Run Fair Comparison", key="btn_fair"):
+    if st.button(
+        "Run Fair Comparison",
+        key="btn_fair",
+    ):
         fair_results = []
 
         for seed in [21, 42, 7]:
@@ -463,7 +572,9 @@ with tab2:
         fair_df = st.session_state["fair_df"]
 
         st.dataframe(
-            fair_df, width="stretch", hide_index=True
+            fair_df,
+            width="stretch",
+            hide_index=True,
         )
 
         st.write("Average Results:")
@@ -477,77 +588,80 @@ with tab2:
 
 
 # ==================================================================
-# ABOUT THE PROJECT
-# Displayed below the main application tabs
+# TAB 3: ABOUT THE PROJECT
 # ==================================================================
 
-st.markdown("---")
-st.header("🌸 About the Project")
+with tab3:
+    st.header("🌸 About the Project")
 
-st.markdown(
-    """
-### Overview
+    st.markdown(
+        """
+        ### Project Overview
 
-**EcoTrain AI** is a machine-learning application that combines
-energy consumption prediction with neural network optimizer
-experiments in an interactive Streamlit interface.
+        **EcoTrain AI** is a machine-learning application that combines
+        energy consumption prediction with neural network optimizer
+        experiments in an interactive Streamlit interface.
 
-### Project Objectives
+        ### Project Objectives
 
-- Predict active power using electricity measurement inputs.
-- Explore and compare different neural network optimizers.
-- Evaluate model performance using Mean Squared Error (MSE)
-  and Mean Absolute Error (MAE).
-- Examine training time and the effects of adaptive learning rates.
-- Present machine-learning results through tables and visualizations.
+        - Predict active power using electricity measurement inputs.
+        - Explore different neural network optimization techniques.
+        - Evaluate model performance using Mean Squared Error (MSE)
+          and Mean Absolute Error (MAE).
+        - Examine training time and adaptive learning-rate strategies.
+        - Present machine-learning results through tables and charts.
 
-### Key Features
+        ### Key Features
 
-**1. Energy Consumption Prediction**
+        #### 1. Energy Consumption Prediction
 
-Users enter electricity measurements, including global reactive
-power, voltage, global intensity, and three sub-meter readings.
-The trained model and saved scaler are used to generate a prediction.
+        Users enter electricity measurements, including global reactive
+        power, voltage, global intensity, and three sub-meter readings.
+        The trained model and saved scaler are used to generate a prediction.
 
-**2. Optimizer Comparison**
+        #### 2. Neural Network Optimizer Comparison
 
-The application compares four optimizers:
+        The application compares four optimization methods:
 
-- **SGD:** Stochastic Gradient Descent.
-- **Momentum:** Helps accelerate gradient-based optimization
-  by incorporating information from previous updates.
-- **RMSprop:** Adapts the learning rate using a moving average
-  of squared gradients.
-- **Adam:** Combines momentum-like updates with adaptive
-  learning rates.
+        - **SGD:** Stochastic Gradient Descent.
+        - **Momentum:** Uses information from previous gradient updates
+          to help accelerate optimization.
+        - **RMSprop:** Adapts the learning rate using a moving average
+          of squared gradients.
+        - **Adam:** Combines adaptive learning rates with momentum-like
+          update behavior.
 
-**3. Adaptive Learning Rate Experiment**
+        #### 3. Adaptive Learning Rate
 
-The application compares a standard Adam model with training
-that uses ReduceLROnPlateau and EarlyStopping.
+        The application compares a standard Adam model with training
+        that uses ReduceLROnPlateau and EarlyStopping.
 
-**4. Model Evaluation**
+        #### 4. Model Evaluation
 
-Performance is assessed using test MSE, test MAE, training time,
-and loss curves.
+        Performance is assessed using test MSE, test MAE, training time,
+        and training and validation loss curves.
 
-### Technologies Used
+        ### Technologies Used
 
-- Python
-- Streamlit
-- TensorFlow and Keras
-- NumPy and Pandas
-- Scikit-learn
-- Matplotlib
-- Joblib
+        - Python
+        - Streamlit
+        - TensorFlow and Keras
+        - NumPy and Pandas
+        - Scikit-learn
+        - Matplotlib
+        - Joblib
 
-### Conclusion
+        ### Conclusion
 
-EcoTrain AI provides an interactive environment for exploring
-energy consumption prediction and neural network training
-strategies. Its experiments help users examine how optimizer
-choices and learning-rate adjustments affect model performance.
-"""
-)
+        EcoTrain AI provides an interactive environment for exploring
+        energy consumption prediction and neural network training
+        strategies. The experiments help users examine how optimizer
+        choices and learning-rate adjustments affect model performance.
+        """
+    )
 
-st.caption("EcoTrain AI | Machine Learning and Energy Analysis")
+    st.markdown("---")
+
+    st.caption(
+        "EcoTrain AI | Machine Learning and Energy Analysis"
+    )
