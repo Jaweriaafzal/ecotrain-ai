@@ -7,6 +7,7 @@ import numpy as np
 import pandas as pd
 import streamlit as st
 import tensorflow as tf
+
 from sklearn.datasets import make_regression
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
@@ -201,23 +202,18 @@ with tab1:
             )
 
     except Exception as e:
-        st.error(
-            f"Unable to load the model files: {e}"
-        )
+        st.error(f"Unable to load the model files: {e}")
 
 
 # ==================================================================
-# TAB 2: OPTIMIZER EXPERIMENTS
+# OPTIMIZER EXPERIMENT DATA
 # ==================================================================
 
 SEED = 42
 
 
-# Generate the dataset
 @st.cache_data
 def make_data():
-    np.random.seed(SEED)
-
     X, y = make_regression(
         n_samples=1200,
         n_features=10,
@@ -244,7 +240,10 @@ def make_data():
 X, X_train, X_test, y_train, y_test = make_data()
 
 
-# Build the artificial neural network
+# ==================================================================
+# BUILD NEURAL NETWORK
+# ==================================================================
+
 def build_model(optimizer):
     model = keras.Sequential(
         [
@@ -264,7 +263,10 @@ def build_model(optimizer):
     return model
 
 
-# Configure the optimizers
+# ==================================================================
+# OPTIMIZER CONFIGURATIONS
+# ==================================================================
+
 optimizer_configs = {
     "SGD": lambda: keras.optimizers.SGD(
         learning_rate=0.01
@@ -282,7 +284,10 @@ optimizer_configs = {
 }
 
 
-# Adaptive learning rate and early stopping
+# ==================================================================
+# ADAPTIVE LEARNING RATE CALLBACKS
+# ==================================================================
+
 def adaptive_callbacks():
     return [
         keras.callbacks.ReduceLROnPlateau(
@@ -301,8 +306,12 @@ def adaptive_callbacks():
     ]
 
 
-# Train a model and return its history, training time, and test errors
+# ==================================================================
+# TRAIN MODEL AND EVALUATE
+# ==================================================================
+
 def train_once(seed, optimizer, epochs, callbacks=None):
+    tf.keras.backend.clear_session()
     tf.keras.utils.set_random_seed(seed)
 
     model = build_model(optimizer)
@@ -321,14 +330,27 @@ def train_once(seed, optimizer, epochs, callbacks=None):
 
     elapsed = time.perf_counter() - start
 
-    test_mse, test_mae = model.evaluate(
+    evaluation = model.evaluate(
         X_test,
         y_test,
         verbose=0,
+        return_dict=True,
     )
+
+    test_mse = float(evaluation["loss"])
+    test_mae = float(evaluation["mae"])
+
+    if not np.isfinite(test_mse) or not np.isfinite(test_mae):
+        raise ValueError(
+            "Model evaluation returned a non-finite MSE or MAE."
+        )
 
     return history, elapsed, test_mse, test_mae
 
+
+# ==================================================================
+# TAB 2: OPTIMIZER EXPERIMENTS
+# ==================================================================
 
 with tab2:
     st.subheader("🎀 ANN Optimizer Experiment")
@@ -375,30 +397,34 @@ with tab2:
         "Compare SGD, Momentum, RMSprop, and Adam over 50 epochs."
     )
 
-    if st.button(
-        "Run Optimizer Comparison",
-        key="btn_opt",
-    ):
+    if st.button("Run Optimizer Comparison", key="btn_opt"):
         results = []
 
         for name, make_optimizer in optimizer_configs.items():
-            with st.spinner(f"Training with {name}..."):
-                history, elapsed, test_mse, test_mae = train_once(
-                    42,
-                    make_optimizer(),
-                    epochs=50,
+            try:
+                with st.spinner(f"Training with {name}..."):
+                    history, elapsed, test_mse, test_mae = train_once(
+                        42,
+                        make_optimizer(),
+                        epochs=50,
+                    )
+
+                results.append(
+                    {
+                        "Optimizer": name,
+                        "Training Time (sec)": round(elapsed, 2),
+                        "Test MSE": round(test_mse, 2),
+                        "Test MAE": round(test_mae, 2),
+                    }
                 )
 
-            results.append(
-                {
-                    "Optimizer": name,
-                    "Training Time (sec)": round(elapsed, 2),
-                    "Test MSE": round(test_mse, 2),
-                    "Test MAE": round(test_mae, 2),
-                }
-            )
+            except Exception as e:
+                st.error(
+                    f"{name} failed: {type(e).__name__}: {e}"
+                )
 
-        st.session_state["results_df"] = pd.DataFrame(results)
+        if results:
+            st.session_state["results_df"] = pd.DataFrame(results)
 
     if "results_df" in st.session_state:
         results_df = st.session_state["results_df"]
@@ -412,19 +438,27 @@ with tab2:
         c1, c2 = st.columns(2)
 
         with c1:
-            st.write("Test MAE (Lower Is Better)")
-
+            st.write("Test MSE (Lower Is Better)")
             st.bar_chart(
-                results_df.set_index("Optimizer")["Test MAE"]
+                results_df.set_index("Optimizer")["Test MSE"]
             )
 
         with c2:
             st.write("Training Time (Seconds)")
-
             st.bar_chart(
-                results_df.set_index("Optimizer")[
-                    "Training Time (sec)"
-                ]
+                results_df.set_index("Optimizer")["Training Time (sec)"]
+            )
+
+        with st.expander("View MSE and MAE definitions"):
+            st.write(
+                "**MSE (Mean Squared Error):** The average of squared "
+                "differences between actual and predicted values. "
+                "Lower values are generally better."
+            )
+            st.write(
+                "**MAE (Mean Absolute Error):** The average absolute "
+                "difference between actual and predicted values. "
+                "Lower values are generally better."
             )
 
     # --------------------------------------------------------------
@@ -439,66 +473,68 @@ with tab2:
         "of 100 epochs."
     )
 
-    if st.button(
-        "Run Adaptive Controller",
-        key="btn_adaptive",
-    ):
-        with st.spinner("Training the Adam baseline..."):
-            _, t1, mse1, mae1 = train_once(
-                42,
-                keras.optimizers.Adam(0.001),
-                epochs=50,
-            )
+    if st.button("Run Adaptive Controller", key="btn_adaptive"):
+        try:
+            with st.spinner("Training the Adam baseline..."):
+                _, t1, mse1, mae1 = train_once(
+                    42,
+                    keras.optimizers.Adam(0.001),
+                    epochs=50,
+                )
 
-        with st.spinner("Training the adaptive controller..."):
-            hist2, t2, mse2, mae2 = train_once(
-                42,
-                keras.optimizers.Adam(0.001),
-                epochs=100,
-                callbacks=adaptive_callbacks(),
-            )
+            with st.spinner("Training the adaptive controller..."):
+                hist2, t2, mse2, mae2 = train_once(
+                    42,
+                    keras.optimizers.Adam(0.001),
+                    epochs=100,
+                    callbacks=adaptive_callbacks(),
+                )
 
-        st.session_state["adaptive"] = {
-            "table": pd.DataFrame(
-                [
-                    {
-                        "Method": "Adam Baseline",
-                        "Epochs": 50,
-                        "Training Time (sec)": round(t1, 2),
-                        "Test MSE": round(mse1, 2),
-                        "Test MAE": round(mae1, 2),
-                    },
-                    {
-                        "Method": "Adaptive Controller",
-                        "Epochs": len(hist2.history["loss"]),
-                        "Training Time (sec)": round(t2, 2),
-                        "Test MSE": round(mse2, 2),
-                        "Test MAE": round(mae2, 2),
-                    },
-                ]
-            ),
-            "loss": hist2.history["loss"],
-            "val_loss": hist2.history["val_loss"],
-        }
+            st.session_state["adaptive"] = {
+                "table": pd.DataFrame(
+                    [
+                        {
+                            "Method": "Adam Baseline",
+                            "Epochs": 50,
+                            "Training Time (sec)": round(t1, 2),
+                            "Test MSE": round(mse1, 2),
+                            "Test MAE": round(mae1, 2),
+                        },
+                        {
+                            "Method": "Adaptive Controller",
+                            "Epochs": len(hist2.history["loss"]),
+                            "Training Time (sec)": round(t2, 2),
+                            "Test MSE": round(mse2, 2),
+                            "Test MAE": round(mae2, 2),
+                        },
+                    ]
+                ),
+                "loss": hist2.history["loss"],
+                "val_loss": hist2.history["val_loss"],
+            }
+
+        except Exception as e:
+            st.error(
+                f"Adaptive experiment failed: {type(e).__name__}: {e}"
+            )
 
     if "adaptive" in st.session_state:
-        a = st.session_state["adaptive"]
+        adaptive = st.session_state["adaptive"]
 
         st.dataframe(
-            a["table"],
+            adaptive["table"],
             width="stretch",
             hide_index=True,
         )
 
         fig, ax = plt.subplots(figsize=(8, 4))
 
-        ax.plot(a["loss"], label="Training Loss")
-        ax.plot(a["val_loss"], label="Validation Loss")
+        ax.plot(adaptive["loss"], label="Training Loss")
+        ax.plot(adaptive["val_loss"], label="Validation Loss")
 
         ax.set_xlabel("Epoch")
         ax.set_ylabel("MSE Loss")
         ax.set_title("EcoTrain AI - Adaptive Training")
-
         ax.legend()
         ax.grid(True)
 
@@ -506,9 +542,9 @@ with tab2:
         plt.close(fig)
 
         st.caption(
-            "Note: The adaptive controller can run for up to 100 epochs, "
-            "while the Adam baseline runs for 50. Therefore, this is not "
-            "an equal comparison. See Section 4 for a fair comparison."
+            "The adaptive controller can run for up to 100 epochs, "
+            "while the Adam baseline runs for 50. This is not an equal "
+            "comparison. See Section 4 for a fair comparison."
         )
 
     # --------------------------------------------------------------
@@ -524,18 +560,15 @@ with tab2:
         "the same 50-epoch limit and random seeds 21, 42, and 7."
     )
 
-    if st.button(
-        "Run Fair Comparison",
-        key="btn_fair",
-    ):
+    if st.button("Run Fair Comparison", key="btn_fair"):
         fair_results = []
 
         for seed in [21, 42, 7]:
             for method in ["Adam", "Adaptive LR"]:
-                cbs = []
+                callbacks = []
 
                 if method == "Adaptive LR":
-                    cbs = [
+                    callbacks = [
                         keras.callbacks.ReduceLROnPlateau(
                             monitor="val_loss",
                             factor=0.5,
@@ -545,28 +578,34 @@ with tab2:
                         )
                     ]
 
-                with st.spinner(
-                    f"Seed {seed} - {method}"
-                ):
-                    history, elapsed, mse, mae = train_once(
-                        seed,
-                        keras.optimizers.Adam(0.001),
-                        epochs=50,
-                        callbacks=cbs,
+                try:
+                    with st.spinner(f"Seed {seed} - {method}"):
+                        history, elapsed, mse, mae = train_once(
+                            seed,
+                            keras.optimizers.Adam(0.001),
+                            epochs=50,
+                            callbacks=callbacks,
+                        )
+
+                    fair_results.append(
+                        {
+                            "Seed": seed,
+                            "Method": method,
+                            "Epochs": len(history.history["loss"]),
+                            "Time (sec)": round(elapsed, 2),
+                            "Test MSE": round(mse, 2),
+                            "Test MAE": round(mae, 2),
+                        }
                     )
 
-                fair_results.append(
-                    {
-                        "Seed": seed,
-                        "Method": method,
-                        "Epochs": len(history.history["loss"]),
-                        "Time (sec)": round(elapsed, 2),
-                        "Test MSE": round(mse, 2),
-                        "Test MAE": round(mae, 2),
-                    }
-                )
+                except Exception as e:
+                    st.error(
+                        f"Seed {seed}, {method} failed: "
+                        f"{type(e).__name__}: {e}"
+                    )
 
-        st.session_state["fair_df"] = pd.DataFrame(fair_results)
+        if fair_results:
+            st.session_state["fair_df"] = pd.DataFrame(fair_results)
 
     if "fair_df" in st.session_state:
         fair_df = st.session_state["fair_df"]
@@ -617,24 +656,21 @@ with tab3:
 
         Users enter electricity measurements, including global reactive
         power, voltage, global intensity, and three sub-meter readings.
-        The trained model and saved scaler are used to generate a prediction.
+        The trained model and saved scaler generate a prediction.
 
         #### 2. Neural Network Optimizer Comparison
 
-        The application compares four optimization methods:
-
         - **SGD:** Stochastic Gradient Descent.
-        - **Momentum:** Uses information from previous gradient updates
-          to help accelerate optimization.
-        - **RMSprop:** Adapts the learning rate using a moving average
-          of squared gradients.
+        - **Momentum:** Uses previous gradient updates to help accelerate
+          optimization.
+        - **RMSprop:** Adapts the learning rate using squared gradients.
         - **Adam:** Combines adaptive learning rates with momentum-like
           update behavior.
 
         #### 3. Adaptive Learning Rate
 
-        The application compares a standard Adam model with training
-        that uses ReduceLROnPlateau and EarlyStopping.
+        The application compares standard Adam with training that uses
+        ReduceLROnPlateau and EarlyStopping.
 
         #### 4. Model Evaluation
 
