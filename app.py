@@ -15,9 +15,9 @@ from tensorflow import keras
 from tensorflow.keras import layers
 
 
-# ==================================================================
+# ============================================================
 # PAGE CONFIGURATION
-# ==================================================================
+# ============================================================
 
 st.set_page_config(
     page_title="EcoTrain AI",
@@ -26,9 +26,9 @@ st.set_page_config(
 )
 
 
-# ==================================================================
+# ============================================================
 # PINK THEME
-# ==================================================================
+# ============================================================
 
 st.markdown(
     """
@@ -109,9 +109,9 @@ st.markdown(
 )
 
 
-# ==================================================================
+# ============================================================
 # APPLICATION TITLE AND TABS
-# ==================================================================
+# ============================================================
 
 st.title("🌸 EcoTrain AI 🌸")
 
@@ -124,9 +124,9 @@ tab1, tab2, tab3 = st.tabs(
 )
 
 
-# ==================================================================
+# ============================================================
 # TAB 1: ENERGY CONSUMPTION PREDICTION
-# ==================================================================
+# ============================================================
 
 @st.cache_resource
 def load_files():
@@ -183,7 +183,8 @@ with tab1:
 
         if st.button("Predict Energy Consumption"):
             inputs = np.array(
-                [[reactive, voltage, intensity, sub1, sub2, sub3]]
+                [[reactive, voltage, intensity, sub1, sub2, sub3]],
+                dtype=np.float32,
             )
 
             scaled_inputs = scaler.transform(inputs)
@@ -193,21 +194,27 @@ with tab1:
                 verbose=0,
             )[0][0]
 
-            st.markdown(
-                '<div class="result-card">'
-                '<div class="label">⚡ Predicted Active Power</div>'
-                f'<div class="value">{prediction:.3f} kW</div>'
-                '</div>',
-                unsafe_allow_html=True,
-            )
+            if np.isfinite(prediction):
+                st.markdown(
+                    '<div class="result-card">'
+                    '<div class="label">⚡ Predicted Active Power</div>'
+                    f'<div class="value">{prediction:.3f} kW</div>'
+                    '</div>',
+                    unsafe_allow_html=True,
+                )
+            else:
+                st.error(
+                    "The model returned an invalid prediction. "
+                    "Please check the model and input data."
+                )
 
     except Exception as e:
-        st.error(f"Unable to load the model files: {e}")
+        st.error(f"Unable to load or run the model: {e}")
 
 
-# ==================================================================
+# ============================================================
 # OPTIMIZER EXPERIMENT DATA
-# ==================================================================
+# ============================================================
 
 SEED = 42
 
@@ -231,8 +238,11 @@ def make_data():
 
     scaler = StandardScaler()
 
-    X_train = scaler.fit_transform(X_train)
-    X_test = scaler.transform(X_test)
+    X_train = scaler.fit_transform(X_train).astype(np.float32)
+    X_test = scaler.transform(X_test).astype(np.float32)
+
+    y_train = y_train.astype(np.float32)
+    y_test = y_test.astype(np.float32)
 
     return X, X_train, X_test, y_train, y_test
 
@@ -240,9 +250,9 @@ def make_data():
 X, X_train, X_test, y_train, y_test = make_data()
 
 
-# ==================================================================
+# ============================================================
 # BUILD NEURAL NETWORK
-# ==================================================================
+# ============================================================
 
 def build_model(optimizer):
     model = keras.Sequential(
@@ -263,30 +273,30 @@ def build_model(optimizer):
     return model
 
 
-# ==================================================================
+# ============================================================
 # OPTIMIZER CONFIGURATIONS
-# ==================================================================
+# ============================================================
 
 optimizer_configs = {
     "SGD": lambda: keras.optimizers.SGD(
-        learning_rate=0.01
+        learning_rate=0.01,
     ),
     "Momentum": lambda: keras.optimizers.SGD(
-        learning_rate=0.01,
+        learning_rate=0.001,
         momentum=0.9,
     ),
     "RMSprop": lambda: keras.optimizers.RMSprop(
-        learning_rate=0.001
+        learning_rate=0.001,
     ),
     "Adam": lambda: keras.optimizers.Adam(
-        learning_rate=0.001
+        learning_rate=0.001,
     ),
 }
 
 
-# ==================================================================
+# ============================================================
 # ADAPTIVE LEARNING RATE CALLBACKS
-# ==================================================================
+# ============================================================
 
 def adaptive_callbacks():
     return [
@@ -306,9 +316,9 @@ def adaptive_callbacks():
     ]
 
 
-# ==================================================================
-# TRAIN MODEL AND EVALUATE
-# ==================================================================
+# ============================================================
+# TRAIN AND EVALUATE MODEL
+# ============================================================
 
 def train_once(seed, optimizer, epochs, callbacks=None):
     tf.keras.backend.clear_session()
@@ -330,6 +340,23 @@ def train_once(seed, optimizer, epochs, callbacks=None):
 
     elapsed = time.perf_counter() - start
 
+    # Check training and validation losses
+    train_losses = np.asarray(history.history["loss"])
+    val_losses = np.asarray(history.history["val_loss"])
+
+    if not np.all(np.isfinite(train_losses)):
+        raise ValueError(
+            "Training loss became NaN or infinity. "
+            "Try reducing the learning rate."
+        )
+
+    if not np.all(np.isfinite(val_losses)):
+        raise ValueError(
+            "Validation loss became NaN or infinity. "
+            "Try reducing the learning rate."
+        )
+
+    # Evaluate using named metrics
     evaluation = model.evaluate(
         X_test,
         y_test,
@@ -342,15 +369,16 @@ def train_once(seed, optimizer, epochs, callbacks=None):
 
     if not np.isfinite(test_mse) or not np.isfinite(test_mae):
         raise ValueError(
-            "Model evaluation returned a non-finite MSE or MAE."
+            "Evaluation returned NaN or infinity. "
+            "Check the optimizer and learning rate."
         )
 
     return history, elapsed, test_mse, test_mae
 
 
-# ==================================================================
+# ============================================================
 # TAB 2: OPTIMIZER EXPERIMENTS
-# ==================================================================
+# ============================================================
 
 with tab2:
     st.subheader("🎀 ANN Optimizer Experiment")
@@ -361,9 +389,9 @@ with tab2:
         "It compares training time and prediction errors."
     )
 
-    # --------------------------------------------------------------
+    # --------------------------------------------------------
     # SECTION 1: DATASET
-    # --------------------------------------------------------------
+    # --------------------------------------------------------
 
     st.markdown("### 1. Dataset")
 
@@ -387,9 +415,9 @@ with tab2:
     st.write("First 5 Training Samples:")
     st.dataframe(df, width="stretch")
 
-    # --------------------------------------------------------------
+    # --------------------------------------------------------
     # SECTION 2: OPTIMIZER COMPARISON
-    # --------------------------------------------------------------
+    # --------------------------------------------------------
 
     st.markdown("### 2. Optimizer Comparison")
 
@@ -425,6 +453,8 @@ with tab2:
 
         if results:
             st.session_state["results_df"] = pd.DataFrame(results)
+        else:
+            st.warning("No optimizer produced valid results.")
 
     if "results_df" in st.session_state:
         results_df = st.session_state["results_df"]
@@ -446,24 +476,14 @@ with tab2:
         with c2:
             st.write("Training Time (Seconds)")
             st.bar_chart(
-                results_df.set_index("Optimizer")["Training Time (sec)"]
+                results_df.set_index("Optimizer")[
+                    "Training Time (sec)"
+                ]
             )
 
-        with st.expander("View MSE and MAE definitions"):
-            st.write(
-                "**MSE (Mean Squared Error):** The average of squared "
-                "differences between actual and predicted values. "
-                "Lower values are generally better."
-            )
-            st.write(
-                "**MAE (Mean Absolute Error):** The average absolute "
-                "difference between actual and predicted values. "
-                "Lower values are generally better."
-            )
-
-    # --------------------------------------------------------------
+    # --------------------------------------------------------
     # SECTION 3: ADAM VS. ADAPTIVE CONTROLLER
-    # --------------------------------------------------------------
+    # --------------------------------------------------------
 
     st.markdown("### 3. Adam vs. Adaptive Controller")
 
@@ -478,14 +498,14 @@ with tab2:
             with st.spinner("Training the Adam baseline..."):
                 _, t1, mse1, mae1 = train_once(
                     42,
-                    keras.optimizers.Adam(0.001),
+                    keras.optimizers.Adam(learning_rate=0.001),
                     epochs=50,
                 )
 
             with st.spinner("Training the adaptive controller..."):
                 hist2, t2, mse2, mae2 = train_once(
                     42,
-                    keras.optimizers.Adam(0.001),
+                    keras.optimizers.Adam(learning_rate=0.001),
                     epochs=100,
                     callbacks=adaptive_callbacks(),
                 )
@@ -547,9 +567,9 @@ with tab2:
             "comparison. See Section 4 for a fair comparison."
         )
 
-    # --------------------------------------------------------------
+    # --------------------------------------------------------
     # SECTION 4: FAIR COMPARISON
-    # --------------------------------------------------------------
+    # --------------------------------------------------------
 
     st.markdown(
         "### 4. Fair Comparison (Same 50 Epochs, 3 Random Seeds)"
@@ -582,7 +602,7 @@ with tab2:
                     with st.spinner(f"Seed {seed} - {method}"):
                         history, elapsed, mse, mae = train_once(
                             seed,
-                            keras.optimizers.Adam(0.001),
+                            keras.optimizers.Adam(learning_rate=0.001),
                             epochs=50,
                             callbacks=callbacks,
                         )
@@ -626,9 +646,9 @@ with tab2:
         )
 
 
-# ==================================================================
+# ============================================================
 # TAB 3: ABOUT THE PROJECT
-# ==================================================================
+# ============================================================
 
 with tab3:
     st.header("🌸 About the Project")
@@ -644,11 +664,10 @@ with tab3:
         ### Project Objectives
 
         - Predict active power using electricity measurement inputs.
-        - Explore different neural network optimization techniques.
-        - Evaluate model performance using Mean Squared Error (MSE)
-          and Mean Absolute Error (MAE).
+        - Explore neural network optimization techniques.
+        - Evaluate model performance using MSE and MAE.
         - Examine training time and adaptive learning-rate strategies.
-        - Present machine-learning results through tables and charts.
+        - Present results through tables and charts.
 
         ### Key Features
 
@@ -656,7 +675,7 @@ with tab3:
 
         Users enter electricity measurements, including global reactive
         power, voltage, global intensity, and three sub-meter readings.
-        The trained model and saved scaler generate a prediction.
+        A trained model and saved scaler generate a prediction.
 
         #### 2. Neural Network Optimizer Comparison
 
@@ -691,8 +710,7 @@ with tab3:
 
         EcoTrain AI provides an interactive environment for exploring
         energy consumption prediction and neural network training
-        strategies. The experiments help users examine how optimizer
-        choices and learning-rate adjustments affect model performance.
+        strategies.
         """
     )
 
