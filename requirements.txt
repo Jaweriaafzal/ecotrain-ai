@@ -1,7 +1,8 @@
 
 streamlit
-numpy<2
 tensorflow
-joblib
-scikit-learn
+numpy<2
 pandas
+matplotlib
+scikit-learn
+joblib
