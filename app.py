@@ -1,196 +1,199 @@
-import json
-import os
- 
+
+
+import streamlit as st
 import numpy as np
 import pandas as pd
-import streamlit as st
- 
-st.set_page_config(page_title="EcoTrain AI", page_icon="🌸", layout="wide")
- 
+import tensorflow as tf
+import joblib
+
+st.set_page_config(page_title="EcoTrain AI", page_icon="🌸")
+
 # ---------- Pink & light pink theme ----------
 st.markdown(
     """
 <style>
 .stApp { background: linear-gradient(180deg, #FFF0F7 0%, #FFE0EF 100%); }
 h1 { color: #D6336C !important; text-align: center; }
-h2, h3, h4 { color: #E64980 !important; }
+h2, h3 { color: #E64980 !important; }
 p, label, li, .stMarkdown { color: #6B2D4A; }
+div[data-baseweb="input"] {
+    border-radius: 14px !important; border: 2px solid #FFC2DD !important; background: #FFFFFF !important;
+}
+div[data-baseweb="input"]:focus-within {
+    border-color: #FF6FAE !important; box-shadow: 0 0 0 3px rgba(255,111,174,0.25);
+}
+div[data-testid="stNumberInput"] button { background: #FFE0EF; color: #D6336C; }
+div.stButton > button {
+    width: 100%; background: linear-gradient(90deg, #FF6FAE, #FF9BCB); color: white; border: none;
+    border-radius: 30px; padding: 0.7em 1.6em; font-size: 1.05rem; font-weight: 700;
+    box-shadow: 0 6px 16px rgba(255,111,174,0.4); transition: transform 0.15s;
+}
+div.stButton > button:hover { transform: scale(1.03); color: white; }
 [data-testid="stMetric"] {
     background: #FFFFFF; border-radius: 18px; padding: 12px; border: 2px solid #FFC2DD;
     box-shadow: 0 4px 10px rgba(255,150,200,0.25);
 }
 button[data-baseweb="tab"] { font-weight: 600; }
-.winner {
+.result-card {
     background: #FFFFFF; border: 3px solid #FFC2DD; border-radius: 24px; padding: 22px;
-    text-align: center; margin: 10px 0 18px 0; box-shadow: 0 8px 20px rgba(255,150,200,0.35);
+    text-align: center; margin-top: 18px; box-shadow: 0 8px 20px rgba(255,150,200,0.35);
 }
-.winner .label { color: #E64980; font-size: 1rem; }
-.winner .value { color: #D6336C; font-size: 2.4rem; font-weight: 800; }
-.winner .sub { color: #6B2D4A; font-size: 0.95rem; }
+.result-card .label { color: #E64980; font-size: 1rem; }
+.result-card .value { color: #D6336C; font-size: 2.6rem; font-weight: 800; }
 </style>
 """,
     unsafe_allow_html=True,
 )
- 
+
 st.title("🌸 EcoTrain AI 🌸")
 st.markdown(
-    "<p style='text-align:center'>Which optimizer uses the least energy to train an ANN?</p>",
+    "<p style='text-align:center'>Optimizer comparison for ANN training and an "
+    "energy consumption prediction application</p>",
     unsafe_allow_html=True,
 )
- 
-# ---------- load data ----------
-st.sidebar.header("📂 Results file")
-uploaded = st.sidebar.file_uploader("Upload energy_results.csv (optional)", type="csv")
-meta = {}
-if uploaded is not None:
-    df = pd.read_csv(uploaded)
-elif os.path.exists("energy_results.csv"):
-    df = pd.read_csv("energy_results.csv")
-    if os.path.exists("energy_meta.json"):
-        meta = json.load(open("energy_meta.json"))
-else:
-    df = None
- 
-tol = st.sidebar.slider(
-    "Accuracy tolerance (%)",
-    0,
-    50,
-    10,
-    help="An optimizer counts as 'accurate enough' if its MAE is within this % of the best MAE.",
+
+tab_pred, tab_opt, tab_about = st.tabs(
+    ["⚡ Predict Energy", "🎀 Optimizer Experiments", "📖 About the Project"]
 )
- 
-if df is None:
-    st.warning(
-        "No results found yet. Run **EcoTrain_Energy_Experiment.ipynb** in Google Colab, "
-        "then add the generated `energy_results.csv` (and `energy_meta.json`) to your GitHub "
-        "repo next to `app.py`, or upload the CSV from the sidebar."
-    )
-    st.stop()
- 
-# ---------- summary ----------
-df = df.copy()
-df["Energy_mWh"] = df["Energy_Wh"] * 1000.0
-df["CO2_mg"] = df["CO2_g"] * 1000.0
-g = df.groupby("Optimizer")
-summary = pd.DataFrame(
-    {
-        "Energy (mWh)": g["Energy_mWh"].mean(),
-        "Energy std": g["Energy_mWh"].std().fillna(0.0),
-        "Time (s)": g["Time_s"].mean(),
-        "CO2 (mg)": g["CO2_mg"].mean(),
-        "Test MAE": g["Test_MAE"].mean(),
-        "MAE std": g["Test_MAE"].std().fillna(0.0),
-        "Test MSE": g["Test_MSE"].mean(),
-    }
-).round(4)
-n_seeds = int(df["Seed"].nunique())
- 
-best_mae = summary["Test MAE"].min()
-ok = summary[summary["Test MAE"] <= best_mae * (1 + tol / 100.0)].sort_values("Energy (mWh)")
-lowest_energy_any = summary["Energy (mWh)"].idxmin()
-lowest_mae_opt = summary["Test MAE"].idxmin()
- 
-tab_verdict, tab_charts, tab_data, tab_method = st.tabs(
-    ["🏆 Verdict", "📈 Charts", "📋 Data", "📖 Method & Notes"]
-)
- 
-# =============================================================== Verdict
-with tab_verdict:
-    winner = ok.index[0]
-    w = summary.loc[winner]
-    st.markdown(
-        f'<div class="winner"><div class="label">🌿 Most energy-efficient optimizer '
-        f"(accurate enough)</div><div class=\"value\">{winner}</div>"
-        f'<div class="sub">{w["Energy (mWh)"]:.3f} mWh per training run &nbsp;|&nbsp; '
-        f'MAE {w["Test MAE"]:.2f}</div></div>',
-        unsafe_allow_html=True,
-    )
- 
-    c1, c2, c3 = st.columns(3)
-    c1.metric("Lowest energy overall", lowest_energy_any,
-              f'{summary.loc[lowest_energy_any, "Energy (mWh)"]:.3f} mWh')
-    c2.metric("Best accuracy (lowest MAE)", lowest_mae_opt,
-              f'MAE {summary.loc[lowest_mae_opt, "Test MAE"]:.2f}')
-    c3.metric("Seeds per optimizer", n_seeds)
- 
-    if lowest_energy_any not in ok.index:
-        st.warning(
-            f"**{lowest_energy_any}** used the least energy overall, but its error is more than "
-            f"{tol}% above the best, so it is not counted as a fair winner. Using less energy "
-            "does not help if the model does not learn."
-        )
- 
-    if len(ok) > 1:
-        e1, e2 = ok.iloc[0], ok.iloc[1]
-        gap = e2["Energy (mWh)"] - e1["Energy (mWh)"]
-        noise = max(e1["Energy std"], e2["Energy std"])
-        if gap < noise:
-            st.info(
-                f"The gap between **{ok.index[0]}** and **{ok.index[1]}** ({gap:.3f} mWh) is smaller "
-                "than the run-to-run variation, so the two are effectively tied."
+
+
+@st.cache_resource
+def load_files():
+    model = tf.keras.models.load_model("ecotrain_model.keras")
+    scaler = joblib.load("ecotrain_scaler.pkl")
+    return model, scaler
+
+
+# =============================================================== TAB 1: Predict
+with tab_pred:
+    st.subheader("💗 Energy Consumption Prediction")
+    st.write("Enter the electricity measurements to predict energy consumption. ✨")
+    try:
+        model, scaler = load_files()
+
+        col1, col2 = st.columns(2)
+        with col1:
+            reactive = st.number_input("💕 Global Reactive Power", min_value=0.0, value=0.4)
+            intensity = st.number_input("🌷 Global Intensity", min_value=0.0, value=10.0)
+            sub2 = st.number_input("🎀 Sub Metering 2", min_value=0.0, value=1.0)
+        with col2:
+            voltage = st.number_input("💖 Voltage", min_value=0.0, value=230.0)
+            sub1 = st.number_input("🌸 Sub Metering 1", min_value=0.0, value=0.0)
+            sub3 = st.number_input("🍬 Sub Metering 3", min_value=0.0, value=15.0)
+
+        if st.button("Predict Energy Consumption 💗"):
+            inputs = np.array([[reactive, voltage, intensity, sub1, sub2, sub3]])
+            scaled_inputs = scaler.transform(inputs)
+            prediction = model.predict(scaled_inputs, verbose=0)[0][0]
+
+            result_html = (
+                '<div class="result-card">'
+                '<div class="label">⚡ Predicted Active Power</div>'
+                f'<div class="value">{prediction:.3f} kW</div>'
+                "</div>"
             )
-        else:
-            st.success(
-                f"**{ok.index[0]}** used {gap:.3f} mWh less per run than **{ok.index[1]}**, "
-                "more than the run-to-run variation."
-            )
- 
-    st.markdown("#### Ranking (accurate-enough optimizers, lowest energy first)")
-    st.dataframe(ok[["Energy (mWh)", "Time (s)", "CO2 (mg)", "Test MAE"]], width="stretch")
- 
-# =============================================================== Charts
-with tab_charts:
+            st.markdown(result_html, unsafe_allow_html=True)
+
+    except Exception as e:
+        st.error(f"Model files load nahi huin: {e}")
+
+# =============================================================== TAB 2: Optimizers
+with tab_opt:
+    st.subheader("🎀 Part A: ANN Optimizer Comparison")
+    st.write(
+        "A feedforward ANN (32 → 16 → 1, ReLU) was trained on a synthetic regression dataset "
+        "(1,200 samples, 10 features; 960 train / 240 test) with four optimizers. "
+        "These are the **recorded results from the project report**, not live training."
+    )
+
+    st.markdown("#### 1. Optimizer comparison")
+    opt = pd.DataFrame(
+        {
+            "Optimizer": ["SGD", "Momentum", "RMSprop", "Adam"],
+            "Training Time (s)": [18.94, 6.16, 6.68, 7.81],
+            "Test MSE": [27646.74, 27645.65, 445.39, 444.99],
+            "Test MAE": [131.25, 131.24, 16.85, 16.73],
+        }
+    )
+    st.dataframe(opt, use_container_width=True, hide_index=True)
     c1, c2 = st.columns(2)
     with c1:
-        st.markdown("**Energy per training run (mWh)**")
-        st.bar_chart(summary["Energy (mWh)"])
-    with c2:
         st.markdown("**Test MAE** (lower is better)")
-        st.bar_chart(summary["Test MAE"])
-    st.markdown("**Energy vs error** (bottom-left is best)")
-    sc = summary.reset_index()[["Optimizer", "Energy (mWh)", "Test MAE"]]
-    st.scatter_chart(sc, x="Energy (mWh)", y="Test MAE", color="Optimizer", size=200)
-    st.markdown("**Energy of every individual run (mWh)**")
-    pivot = df.pivot_table(index="Seed", columns="Optimizer", values="Energy_mWh")
-    st.line_chart(pivot)
-    st.caption("Large gaps between lines are real differences; lines that cross mean the optimizers are close.")
- 
-# =============================================================== Data
-with tab_data:
-    st.markdown("#### Summary (mean over seeds)")
-    st.dataframe(summary, width="stretch")
-    with st.expander("All individual runs"):
-        st.dataframe(df, width="stretch", hide_index=True)
-    st.download_button("Download summary CSV", summary.to_csv().encode(), "energy_summary.csv")
- 
-# =============================================================== Method
-with tab_method:
+        st.bar_chart(opt.set_index("Optimizer")["Test MAE"])
+    with c2:
+        st.markdown("**Training time (s)**")
+        st.bar_chart(opt.set_index("Optimizer")["Training Time (s)"])
+    st.info(
+        "Adam had the lowest MSE and MAE, narrowly ahead of RMSprop. Both had far lower error "
+        "than SGD and Momentum, which barely learned."
+    )
+
+    st.markdown("#### 2. Adam vs Adam + adaptive learning rate (3 seeds, 50 epochs)")
+    fair = pd.DataFrame(
+        {
+            "Seed": [21, 21, 42, 42, 7, 7],
+            "Strategy": ["Adam", "Adam + adaptive LR"] * 3,
+            "Time (s)": [11.00, 7.93, 6.16, 13.48, 8.08, 6.31],
+            "Test MSE": [426.05, 426.05, 444.99, 444.99, 433.65, 433.65],
+            "Test MAE": [16.38, 16.38, 16.73, 16.73, 16.47, 16.47],
+        }
+    )
+    st.dataframe(fair, use_container_width=True, hide_index=True)
+    m1, m2, m3, m4 = st.columns(4)
+    m1.metric("Avg MSE (both)", "434.90")
+    m2.metric("Avg MAE (both)", "16.53")
+    m3.metric("Avg time: Adam", "8.41 s")
+    m4.metric("Avg time: Adaptive", "9.24 s")
+    st.warning(
+        "Adaptive learning rate gave identical error to plain Adam and no consistent time "
+        "advantage. The learning rate stayed at 0.001 because validation loss kept improving."
+    )
+
+    st.markdown("#### 3. Longer adaptive run (100 epochs)")
+    longrun = pd.DataFrame(
+        {
+            "Metric": [
+                "Epochs completed",
+                "Initial / final learning rate",
+                "Training time",
+                "Test MSE",
+                "Test MAE",
+            ],
+            "Recorded value": ["100", "0.001 / 0.001", "24.86 s", "338.42", "14.83"],
+        }
+    )
+    st.dataframe(longrun, use_container_width=True, hide_index=True)
+    st.caption(
+        "This run used twice the epoch budget, so its lower error cannot be credited to "
+        "learning-rate adaptation."
+    )
+    st.caption(
+        "Energy was not directly measured in these experiments. Training time is only a proxy "
+        "for training cost."
+    )
+
+# =============================================================== TAB 3: About
+with tab_about:
+    st.subheader("📖 About EcoTrain AI")
     st.markdown(
-        f"""
-**Question:** how much energy does each optimizer use to train the same ANN, and is the
-extra energy worth it?
- 
-**Setup:** the same ANN (10 → 32 → 16 → 1, ReLU), the same synthetic regression data
-(1,200 samples, 10 features), the same number of epochs and batch size for every optimizer,
-repeated on **{n_seeds} seeds**. Optimizers: SGD, Momentum, RMSprop, Adam.
- 
-**Energy measurement:** energy was recorded with the CodeCarbon library around each
-training run. A short warm-up run is done first so TensorFlow start-up is not charged to
-the first optimizer.
- 
-**Fair winner:** the optimizer with the lowest energy among those whose MAE is within the
-tolerance (sidebar) of the best MAE. This avoids calling a model "efficient" when it
-simply failed to learn.
+        """
+**Aim:** compare ANN optimizers on a controlled task and deliver an ANN-based energy
+consumption prediction application.
+
+**Part A: Optimizer experiments**
+- SGD, Momentum, RMSprop and Adam were compared on a synthetic regression task.
+- Adam was compared with Adam + ReduceLROnPlateau over three seeds.
+
+**Part B: Energy prediction application**
+- Inputs: Global Reactive Power, Voltage, Global Intensity, Sub Metering 1, 2 and 3.
+- Output: Predicted Active Power (kW).
+- The trained ANN and its scaler are loaded by this app.
+
+**Conclusion:** Adam and RMSprop gave much lower error than SGD and Momentum. Adaptive
+learning rate did not improve on Adam under an equal budget. This project does not claim
+energy savings, because energy used during training was not measured.
+
+**Limitations:** synthetic data for Part A, only three seeds, timing affected by hardware load.
 """
     )
-    if meta:
-        st.markdown("**Measurement environment**")
-        st.json(meta)
-    st.warning(
-        "On Google Colab and most laptops, CodeCarbon **estimates** energy from the CPU's rated "
-        "power and its load; it is not a wall-socket meter reading. Treat the values as "
-        "estimates that are good for comparing optimizers on the same machine, not as exact "
-        "electricity bills."
-    )
     st.caption("Jaweria Afzal | Roll No. 24DS18 | QUEST Nawabshah")
- 
