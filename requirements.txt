@@ -1,8 +1,6 @@
-
 streamlit
-tensorflow==2.18.0
-numpy==1.26.4
-pandas==2.2.3
-matplotlib
-scikit-learn==1.6.1
+tensorflow-cpu
+scikit-learn
+pandas
+numpy
 joblib
