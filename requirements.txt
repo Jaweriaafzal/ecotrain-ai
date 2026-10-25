@@ -1,6 +1,7 @@
 
 streamlit
-numpy
+numpy<2
 tensorflow
 joblib
 scikit-learn
+pandas
